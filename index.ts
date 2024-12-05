@@ -41,4 +41,6 @@ io.on("connection", (socket) => {
 app.get("/", (req, res) => {
     res.send("Hello from the server at 3000");
 });
-server.listen(4000, () => console.log("Server is running on port 3000"));
+server.listen(process.env.PORT, () =>
+    console.log(`Server is running on port ${process.env.PORT}`)
+);
