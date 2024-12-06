@@ -39,7 +39,7 @@ io.on("connection", (socket) => {
 });
 
 app.get("/", (req, res) => {
-    res.send("Hello from the server at 3000");
+    res.send(`Hello from the server at ${process.env.PORT}`);
 });
 server.listen(process.env.PORT, () =>
     console.log(`Server is running on port ${process.env.PORT}`)
