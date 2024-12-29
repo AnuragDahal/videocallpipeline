@@ -10,8 +10,6 @@ export const switchPreference = (preference: string) => {
             return ENUM.FEMALE;
         case ENUM.FEMALE:
             return ENUM.MALE;
-        case ENUM.ANY:
-            return ENUM.ANY;
         default:
             return ENUM.ANY; // Default case to handle unexpected values
     }

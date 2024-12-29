@@ -4,7 +4,6 @@ import { ENUM, switchPreference } from "../utils/helper";
 
 export const createUserSession = async (data: IUser) => {
     try {
-        // First, clean up any existing session for this socket
         await User.findOneAndDelete({ socketId: data.socketId });
 
         const user = new User(data);
@@ -18,23 +17,20 @@ export const createUserSession = async (data: IUser) => {
 
 export const findUserMatch = async (socketId: string, preference: string) => {
     try {
-        // If the preference is 'ANY', we don't need to switch; just check for availability
         const matchQuery: any = {
-            socketId: { $ne: socketId }, // Exclude the current user
-            isAvailable: true, // Ensure the user is available
+            socketId: { $ne: socketId },
+            isAvailable: true,
         };
-        // Adjust query based on gender preference
+
         if (preference === ENUM.ANY) {
-            // No gender preference, just find any available user
         } else {
-            // Switch gender based on the user's preference
             const preferenceToFilter = switchPreference(preference as ENUM);
             matchQuery.gender = preference;
             matchQuery.preference = preferenceToFilter;
         }
-        // Log the query to see if it's built correctly
+
         console.log("Match Query:", matchQuery);
-        // Find the user who has been waiting the longest
+
         const user = await User.findOne(matchQuery);
         console.log("Match Found:", user);
         return user?.socketId || null;

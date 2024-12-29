@@ -35,7 +35,7 @@ export const setupSocketIO = (server: any) => {
             findUserMatch(socket.id, data.preference)
                 .then(async (remoteSocketID) => {
                     if (remoteSocketID) {
-                        console.log("Match request:", {
+                        console.log("Match found:", {
                             sessionId: socket.id,
                             preference: data.preference,
                             remoteSocketID,
@@ -130,5 +130,5 @@ export const setupSocketIO = (server: any) => {
                     console.log("Error finding match in waiting queue:", error);
                 });
         }
-    }, 5000); // Check every 5 seconds
+    }, 15000); // Check every 10 seconds
 };
