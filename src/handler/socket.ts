@@ -7,6 +7,7 @@ import {
     markUserBusy,
 } from "./usersession";
 import { WaitingQueue } from "../models/queue";
+import { isUserBusy } from "../utils/helper";
 
 export const setupSocketIO = (server: any) => {
     const io = new Server(server, {
@@ -32,32 +33,57 @@ export const setupSocketIO = (server: any) => {
         });
         console.log("User connected:", socket.id);
         socket.on("match-request", (data) => {
-            findUserMatch(socket.id, data.preference)
-                .then(async (remoteSocketID) => {
-                    if (remoteSocketID) {
+            findUserMatch(socket.id, data.preference, data.gender)
+                .then(async (remoteSocketId) => {
+                    if (remoteSocketId) {
                         console.log("Match found:", {
                             sessionId: socket.id,
                             preference: data.preference,
-                            remoteSocketID,
+                            remoteSocketId,
                         });
-                        // Notify both users about the match
-                        socket.emit("match-found", { remoteSocketID });
-                        io.to(remoteSocketID).emit("match-found", {
-                            remoteSocketID: socket.id,
+                        // Designate the current user as the offer initiator
+                        io.to(socket.id).emit("match-found", {
+                            remoteSocketId,
+                            initiator: true, // Current user will send the offer
                         });
 
+                        io.to(remoteSocketId).emit("match-found", {
+                            remoteSocketId: socket.id,
+                            initiator: false, // Remote user will wait for the offer
+                        });
                         // Mark both users as busy
                         await markUserBusy(socket.id);
-                        await markUserBusy(remoteSocketID);
+                        await markUserBusy(remoteSocketId);
+                        // Remove matched users from the waiting queue
+                        try {
+                            await WaitingQueue.deleteOne({
+                                socketId: socket.id,
+                            });
+                            await WaitingQueue.deleteOne({
+                                socketId: remoteSocketId,
+                            });
+                            console.log(
+                                "User removed from waiting queue:",
+                                socket.id,
+                                remoteSocketId
+                            );
+                        } catch (error) {
+                            console.error(
+                                "Error removing users from waiting queue:",
+                                error
+                            );
+                        }
                     } else {
                         console.log("No match found for:", {
                             sessionId: socket.id,
                             preference: data.preference,
+                            gender: data.gender,
                         });
                         // Add user to waiting queue
                         const waitingUser = new WaitingQueue({
                             socketId: socket.id,
                             preference: data.preference,
+                            gender: data.gender,
                         });
                         await waitingUser.save({ validateBeforeSave: false });
                         console.log("User added to waiting queue:", socket.id);
@@ -93,36 +119,42 @@ export const setupSocketIO = (server: any) => {
 
     // Periodically check for matches in the waiting queue
     setInterval(async () => {
-        const waitingUsers = await WaitingQueue.find().sort({ createdAt: 1 });
+        const waitingUsers = await WaitingQueue.find({
+            isAvailable: true,
+        }).sort({ createdAt: 1 });
+
         for (let i = 0; i < waitingUsers.length; i++) {
             const user = waitingUsers[i];
             const preference = user.preference;
-            findUserMatch(user.socketId, preference)
-                .then(async (remoteSocketID) => {
-                    if (remoteSocketID) {
-                        console.log("Match found in waiting queue:", {
-                            userId: user.socketId,
-                            preference,
-                            remoteSocketID,
-                        });
-                        // Notify both users about the match
+            const gender = user.gender;
+
+            if (await isUserBusy(user.socketId)) {
+                // Skip processing if the user is already busy
+                continue;
+            }
+
+            findUserMatch(user.socketId, preference, gender)
+                .then(async (remoteSocketId) => {
+                    if (remoteSocketId) {
+                        // Notify and mark users as matched
                         io.to(user.socketId).emit("match-found", {
-                            remoteSocketID,
+                            remoteSocketId,
+                            initiator: true, // Current user initiates
                         });
-                        io.to(remoteSocketID).emit("match-found", {
-                            remoteSocketID: user.socketId,
+                        io.to(remoteSocketId).emit("match-found", {
+                            remoteSocketId: user.socketId,
+                            initiator: false,
                         });
 
-                        // Mark both users as busy
                         await markUserBusy(user.socketId);
-                        await markUserBusy(remoteSocketID);
+                        await markUserBusy(remoteSocketId);
 
                         // Remove matched users from waiting queue
-                        await WaitingQueue.findOneAndDelete({
+                        await WaitingQueue.deleteOne({
                             socketId: user.socketId,
                         });
-                        await WaitingQueue.findOneAndDelete({
-                            socketId: remoteSocketID,
+                        await WaitingQueue.deleteOne({
+                            socketId: remoteSocketId,
                         });
                     }
                 })
@@ -130,5 +162,5 @@ export const setupSocketIO = (server: any) => {
                     console.log("Error finding match in waiting queue:", error);
                 });
         }
-    }, 15000); // Check every 10 seconds
+    }, 15000);
 };

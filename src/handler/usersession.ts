@@ -1,6 +1,6 @@
 import { User } from "../models/user";
 import { IUser } from "../types";
-import { ENUM, switchPreference } from "../utils/helper";
+import { ENUM } from "../utils/helper";
 
 export const createUserSession = async (data: IUser) => {
     try {
@@ -15,7 +15,11 @@ export const createUserSession = async (data: IUser) => {
     }
 };
 
-export const findUserMatch = async (socketId: string, preference: string) => {
+export const findUserMatch = async (
+    socketId: string,
+    preference: string,
+    gender: string
+) => {
     try {
         const matchQuery: any = {
             socketId: { $ne: socketId },
@@ -24,9 +28,8 @@ export const findUserMatch = async (socketId: string, preference: string) => {
 
         if (preference === ENUM.ANY) {
         } else {
-            const preferenceToFilter = switchPreference(preference as ENUM);
             matchQuery.gender = preference;
-            matchQuery.preference = preferenceToFilter;
+            matchQuery.preference = gender;
         }
 
         console.log("Match Query:", matchQuery);

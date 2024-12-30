@@ -7,5 +7,6 @@ export interface IUser {
 export interface IQueue {
     socketId: string;
     preference: string;
+    gender: string;
     createdAt: Date;
 }
